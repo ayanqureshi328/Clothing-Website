@@ -1,0 +1,71 @@
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Check, ChevronDown, Heart, Menu, Minus, Plus, Search, ShoppingBag, Star, X } from 'lucide-react';
+
+const categories = ['All', 'Outerwear', 'Knitwear', 'Tops', 'Accessories'];
+const reviews = [
+  { quote: 'The kind of coat that changes the way you walk through a city.', name: 'Amelia R.', city: 'London' },
+  { quote: 'A rare balance of restraint and presence. Every detail feels intentional.', name: 'Noah K.', city: 'Copenhagen' },
+  { quote: 'Quietly exceptional. The knit has become the most worn thing in my wardrobe.', name: 'Mina S.', city: 'New York' }
+];
+
+const formatPrice = (value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+
+function App() {
+  const [products, setProducts] = useState([]);
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [search, setSearch] = useState('');
+  const [bag, setBag] = useState(() => JSON.parse(localStorage.getItem('maison-noir-bag') || '[]'));
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isBagOpen, setIsBagOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [notice, setNotice] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { localStorage.setItem('maison-noir-bag', JSON.stringify(bag)); }, [bag]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    fetch(`/api/products?category=${encodeURIComponent(activeCategory)}&search=${encodeURIComponent(search)}`, { signal: controller.signal })
+      .then((response) => { if (!response.ok) throw new Error('Collection unavailable'); return response.json(); })
+      .then(setProducts).catch((error) => { if (error.name !== 'AbortError') setNotice({ type: 'error', text: 'The collection could not be reached. Is the API running?' }); })
+      .finally(() => setLoading(false));
+    return () => controller.abort();
+  }, [activeCategory, search]);
+
+  const bagCount = bag.reduce((sum, item) => sum + item.quantity, 0);
+  const bagTotal = bag.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const addToBag = (product, size = product.sizes[0], color = product.colors[0]) => {
+    setBag((current) => {
+      const existing = current.find((item) => item.productId === product._id && item.size === size && item.color === color);
+      if (existing && existing.quantity >= product.stockQuantity) { setNotice({ type: 'error', text: 'That is all we have in stock.' }); return current; }
+      return existing ? current.map((item) => item === existing ? { ...item, quantity: item.quantity + 1 } : item) : [...current, { productId: product._id, name: product.name, price: product.price, imageUrl: product.imageUrl, size, color, quantity: 1 }];
+    });
+    setSelectedProduct(null); setIsBagOpen(true); setNotice({ type: 'success', text: 'Added to your bag.' });
+  };
+  const updateQuantity = (index, change) => setBag((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(0, item.quantity + change) } : item).filter((item) => item.quantity > 0));
+
+  return <div className="app-shell">
+    <div className="announcement">Complimentary worldwide shipping on orders over $300 <ArrowRight size={13} /></div>
+    <header className="navbar"><a href="#top" className="wordmark">MAISON <span>NOIR</span></a><nav><a href="#collection">Collection</a><a href="#story">The house</a><a href="#journal">Journal</a></nav><div className="nav-actions"><button className="icon-button" aria-label="Search" onClick={() => document.getElementById('collection').scrollIntoView()}><Search size={19} /></button><button className="bag-button" onClick={() => setIsBagOpen(true)}><ShoppingBag size={19} /><span>Bag</span><b>{bagCount}</b></button><button className="icon-button mobile-menu" aria-label="Menu"><Menu size={20} /></button></div></header>
+    <main id="top">
+      <section className="hero"><div className="hero-image" /><div className="hero-overlay" /><div className="hero-content"><p className="eyebrow">Autumn / Winter 2024</p><h1>Form follows<br /><em>feeling.</em></h1><p className="hero-copy">Clothing with a point of view. Designed slowly, made to stay.</p><a className="text-link light" href="#collection">Discover the collection <ArrowRight size={16} /></a></div><p className="hero-index">01 / 04</p></section>
+      <section className="intro-band"><p className="eyebrow">The new standard</p><p className="intro-statement">A study in <em>quiet confidence.</em><br />Objects for a life well considered.</p><div className="intro-rule" /></section>
+      <section className="collection-section" id="collection"><div className="section-heading"><div><p className="eyebrow">The collection</p><h2>Essential <em>forms</em></h2></div><div className="collection-controls"><div className="search-field"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search pieces" /></div><div className="category-list">{categories.map((category) => <button className={activeCategory === category ? 'active' : ''} onClick={() => setActiveCategory(category)} key={category}>{category}</button>)}</div></div></div>{loading ? <div className="loading-state"><span /> Curating the collection...</div> : products.length ? <div className="product-grid">{products.map((product, index) => <ProductCard key={product._id} product={product} index={index} onSelect={setSelectedProduct} />)}</div> : <div className="empty-state">No pieces found. Try a different search.</div>}</section>
+      <section className="story-section" id="story"><div className="story-image" /><div className="story-copy"><p className="eyebrow">A considered practice</p><h2>Made for the <em>in-between.</em></h2><p>Maison Noir is a wardrobe built around the spaces between occasions. We work with natural materials, patient hands, and a belief that the most lasting things rarely ask for attention.</p><a className="text-link" href="#journal">More about the house <ArrowRight size={16} /></a></div></section>
+      <section className="reviews-section"><div className="section-heading"><div><p className="eyebrow">In their words</p><h2>Worn <em>well.</em></h2></div><div className="review-rating"><span>4.9</span><div><div className="stars">★★★★★</div><small>From 280+ considered wardrobes</small></div></div></div><div className="review-grid">{reviews.map((review) => <article className="review" key={review.name}><div className="stars">★★★★★</div><p>“{review.quote}”</p><footer>{review.name}<span>{review.city}</span></footer></article>)}</div></section>
+      <section className="newsletter" id="journal"><div><p className="eyebrow">Letters from the house</p><h2>Stay in the <em>know.</em></h2></div><form onSubmit={(event) => { event.preventDefault(); setNotice({ type: 'success', text: 'You are on the list.' }); event.currentTarget.reset(); }}><label htmlFor="email">Occasional notes on new work, places, and people.</label><div className="email-field"><input id="email" type="email" required placeholder="Your email address" /><button aria-label="Subscribe"><ArrowRight size={18} /></button></div></form></section>
+    </main>
+    <footer className="site-footer"><a href="#top" className="wordmark">MAISON <span>NOIR</span></a><div className="footer-links"><a href="#collection">Shop</a><a href="#story">About</a><a href="#journal">Contact</a><a href="#journal">Instagram</a></div><p>© 2024 Maison Noir. Made with intention.</p></footer>
+    {selectedProduct && <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAdd={addToBag} />}
+    {isBagOpen && <BagDrawer bag={bag} total={bagTotal} onClose={() => setIsBagOpen(false)} onUpdate={updateQuantity} onCheckout={() => { setIsBagOpen(false); setIsCheckoutOpen(true); }} />}
+    {isCheckoutOpen && <CheckoutModal bag={bag} total={bagTotal} onClose={() => setIsCheckoutOpen(false)} onSuccess={(message) => { setBag([]); setIsCheckoutOpen(false); setNotice({ type: 'success', text: message }); }} />}
+    {notice && <div className={`toast ${notice.type}`}><span>{notice.type === 'success' ? <Check size={16} /> : <X size={16} />}</span>{notice.text}<button onClick={() => setNotice(null)}><X size={14} /></button></div>}
+  </div>;
+}
+
+function ProductCard({ product, index, onSelect }) { return <article className="product-card" onClick={() => onSelect(product)}><div className="product-image"><img src={product.imageUrl} alt={product.name} loading={index > 2 ? 'lazy' : 'eager'} /><button className="wishlist" aria-label={`Save ${product.name}`} onClick={(event) => event.stopPropagation()}><Heart size={17} /></button><span className="quick-view">View details <ArrowRight size={14} /></span></div><div className="product-meta"><div><h3>{product.name}</h3><p>{product.category}</p></div><strong>{formatPrice(product.price)}</strong></div></article>; }
+function ProductModal({ product, onClose, onAdd }) { const [size, setSize] = useState(product.sizes[0]); const [color, setColor] = useState(product.colors[0]); return <div className="modal-backdrop" onClick={onClose}><div className="product-modal" onClick={(event) => event.stopPropagation()}><button className="close-button" onClick={onClose}><X size={20} /></button><div className="modal-image"><img src={product.imageUrl} alt={product.name} /></div><div className="modal-content"><p className="eyebrow">{product.category}</p><h2>{product.name}</h2><strong className="modal-price">{formatPrice(product.price)}</strong><p className="modal-description">{product.description}</p><div className="choice"><span>Color</span><div className="choice-options">{product.colors.map((option) => <button className={color === option ? 'selected' : ''} onClick={() => setColor(option)} key={option}>{option}</button>)}</div></div><div className="choice"><span>Size <a href="#size">Size guide</a></span><div className="choice-options">{product.sizes.map((option) => <button className={size === option ? 'selected' : ''} onClick={() => setSize(option)} key={option}>{option}</button>)}</div></div><p className="stock-note">{product.stockQuantity < 10 ? `Only ${product.stockQuantity} left` : 'In stock · Ships within 2–3 days'}</p><button className="primary-button" onClick={() => onAdd(product, size, color)}>Add to bag <ArrowRight size={16} /></button></div></div></div>; }
+function BagDrawer({ bag, total, onClose, onUpdate, onCheckout }) { return <div className="drawer-backdrop" onClick={onClose}><aside className="bag-drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-header"><div><p className="eyebrow">Your selection</p><h2>Bag <span>({bag.length})</span></h2></div><button className="close-button" onClick={onClose}><X size={20} /></button></div>{bag.length ? <><div className="bag-items">{bag.map((item, index) => <div className="bag-item" key={`${item.productId}-${item.size}-${item.color}`}><img src={item.imageUrl} alt="" /><div className="bag-item-info"><h3>{item.name}</h3><p>{item.color} / {item.size}</p><strong>{formatPrice(item.price)}</strong><div className="quantity"><button onClick={() => onUpdate(index, -1)}><Minus size={13} /></button><span>{item.quantity}</span><button onClick={() => onUpdate(index, 1)}><Plus size={13} /></button></div></div></div>)}</div><div className="drawer-footer"><div><span>Subtotal</span><strong>{formatPrice(total)}</strong></div><small>Shipping and taxes calculated at checkout.</small><button className="primary-button" onClick={onCheckout}>Continue to checkout <ArrowRight size={16} /></button></div></> : <div className="empty-bag"><ShoppingBag size={28} /><p>Your bag is waiting.</p><button className="text-link" onClick={onClose}>Explore the collection <ArrowRight size={15} /></button></div>}</aside></div>; }
+function CheckoutModal({ bag, total, onClose, onSuccess }) { const [form, setForm] = useState({ name: '', email: '', address: '', city: '', postalCode: '' }); const [submitting, setSubmitting] = useState(false); const [error, setError] = useState(''); const update = (event) => setForm({ ...form, [event.target.name]: event.target.value }); const submit = async (event) => { event.preventDefault(); setSubmitting(true); setError(''); try { const response = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customer: form, items: bag }) }); const data = await response.json(); if (!response.ok) throw new Error(data.message); onSuccess(`Order ${data.orderId.slice(-6).toUpperCase()} confirmed. Thank you.`); } catch (requestError) { setError(requestError.message); } finally { setSubmitting(false); } }; return <div className="modal-backdrop" onClick={onClose}><div className="checkout-modal" onClick={(event) => event.stopPropagation()}><button className="close-button" onClick={onClose}><X size={20} /></button><div className="checkout-heading"><p className="eyebrow">Almost yours</p><h2>Complete your <em>order.</em></h2><p>Secure checkout · {formatPrice(total)}</p></div><form onSubmit={submit} className="checkout-form"><div className="form-grid"><label>Full name<input name="name" value={form.name} onChange={update} required /></label><label>Email address<input type="email" name="email" value={form.email} onChange={update} required /></label><label>Address<input name="address" value={form.address} onChange={update} required /></label><label>City<input name="city" value={form.city} onChange={update} required /></label><label>Postal code<input name="postalCode" value={form.postalCode} onChange={update} required /></label></div>{error && <p className="form-error">{error}</p>}<button className="primary-button" disabled={submitting}>{submitting ? 'Confirming...' : <>Place order <ArrowRight size={16} /></>}</button></form></div></div>; }
+
+export default App;
