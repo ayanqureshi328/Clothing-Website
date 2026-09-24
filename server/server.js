@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -7,6 +7,13 @@ const Order = require('./models/Order');
 
 const app = express();
 const port = process.env.PORT || 5000;
+const mongoUri = process.env.MONGODB_URI;
+
+if (!mongoUri) {
+  console.error('MONGODB_URI is missing. Add it to server/.env.');
+  process.exit(1);
+}
+
 app.use(cors());
 app.use(express.json());
 
@@ -67,6 +74,19 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/maison-noir')
-  .then(() => app.listen(port, () => console.log(`Maison Noir API listening on ${port}`)))
-  .catch((error) => console.error('MongoDB connection failed:', error.message));
+
+mongoose.connect(mongoUri)
+  .then(() => {
+    console.log('MongoDB connected.');
+
+    if (process.env.NODE_ENV !== 'production') {
+      app.listen(port, () => {
+        console.log(`Maison Noir API listening on ${port}`);
+      });
+    }
+  })
+  .catch((error) => {
+    console.error('MongoDB connection failed:', error.message);
+  });
+
+module.exports = app;
