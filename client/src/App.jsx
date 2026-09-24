@@ -81,7 +81,7 @@ function App() {
     setLoading(true);
 
     fetch(
-      `${import.meta.env.VITE_API_URL}/api/products?category=${encodeURIComponent(
+      `${import.meta.env.VITE_API_URL}clothing-website-f40.vercel.app/api/products?category=${encodeURIComponent(
         activeCategory
       )}&search=${encodeURIComponent(search)}`,
       {
