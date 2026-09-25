@@ -74,33 +74,16 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-let dbConnection = null;
-
-async function connectDB() {
-  if (dbConnection) {
-    return dbConnection;
-  }
-
-  dbConnection = mongoose.connect(mongoUri)
+if (process.env.NODE_ENV !== 'production') {
+  mongoose.connect(mongoUri)
     .then(() => {
-      console.log('MongoDB connected.');
-      return mongoose.connection;
+      app.listen(port, () => {
+        console.log(`Maison Noir API listening on ${port}`);
+      });
     })
     .catch((error) => {
-      dbConnection = null;
       console.error('MongoDB connection failed:', error.message);
-      throw error;
     });
-
-  return dbConnection;
 }
 
-if (process.env.NODE_ENV !== 'production') {
-  connectDB().then(() => {
-    app.listen(port, () => {
-      console.log(`Maison Noir API listening on ${port}`);
-    });
-  });
-}
-
-module.exports = { app, connectDB };
+module.exports = app;
