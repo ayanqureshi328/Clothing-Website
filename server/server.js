@@ -74,19 +74,33 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
+let dbConnection = null;
 
-mongoose.connect(mongoUri)
-  .then(() => {
-    console.log('MongoDB connected.');
+async function connectDB() {
+  if (dbConnection) {
+    return dbConnection;
+  }
 
-    if (process.env.NODE_ENV !== 'production') {
-      app.listen(port, () => {
-        console.log(`Maison Noir API listening on ${port}`);
-      });
-    }
-  })
-  .catch((error) => {
-    console.error('MongoDB connection failed:', error.message);
+  dbConnection = mongoose.connect(mongoUri)
+    .then(() => {
+      console.log('MongoDB connected.');
+      return mongoose.connection;
+    })
+    .catch((error) => {
+      dbConnection = null;
+      console.error('MongoDB connection failed:', error.message);
+      throw error;
+    });
+
+  return dbConnection;
+}
+
+if (process.env.NODE_ENV !== 'production') {
+  connectDB().then(() => {
+    app.listen(port, () => {
+      console.log(`Maison Noir API listening on ${port}`);
+    });
   });
+}
 
-module.exports = app;
+module.exports = { app, connectDB };
