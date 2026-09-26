@@ -79,7 +79,7 @@ function App() {
     const controller = new AbortController();
 
     setLoading(true);
-fetch( `https://clothing-website-f40.vercel.app/api/health?category=${encodeURIComponent( activeCategory )}` )
+fetch( `https://clothing-website-f40.vercel.app/api/products?category=${encodeURIComponent( activeCategory )}` )
       )}&search=${encodeURIComponent(search)}`,
       {
         signal: controller.signal
